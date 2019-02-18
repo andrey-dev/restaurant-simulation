@@ -10,7 +10,7 @@ declare const fabric: any;
 })
 export class TablesPanelComponent implements OnInit {
   public tables: Table[];
-  private canvas: any;
+  public canvas: any;
   constructor(private restManager: RestManager) {}
 
   ngOnInit() {
