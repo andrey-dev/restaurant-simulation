@@ -1,14 +1,13 @@
-import * as CONSTANTS from '../constants/constants';
 import { getRandomValue } from '../utils/utils';
 import { EventEmitter } from '@angular/core';
 import { UUID } from 'angular2-uuid';
 
 export class ClientsGroup {
   // In milliseconds
-  private readonly minWaitingTime = 2000;
-  private readonly maxWaitingTime = 8000;
-  private readonly minTimeInRestaurant = 4000;
-  private readonly maxTimeInRestaurant = 15000;
+  private readonly minWaitingTime = 9000;
+  private readonly maxWaitingTime = 10000;
+  private readonly minTimeInRestaurant = 12000;
+  private readonly maxTimeInRestaurant = 13000;
 
   private id: string;
   private groupSize: number;
@@ -49,8 +48,8 @@ export class ClientGroupManager {
   public groupArrived = new EventEmitter<ClientsGroup>();
 
   // In milliseconds
-  private readonly minTimeGroupAppearence: number = 3000;
-  private readonly maxTimeGroupAppearence: number = 7000;
+  private minTimeGroupAppearence = 2000;
+  private maxTimeGroupAppearence = 3000;
   private readonly minGroupSize = 1;
   private readonly maxGroupSize = 6;
   private intervalID: any;
@@ -65,6 +64,18 @@ export class ClientGroupManager {
     if (this.intervalID) {
       clearInterval(this.intervalID);
     }
+  }
+
+  public setMinAppearenceTime(time: number): void {
+    this.minTimeGroupAppearence = time;
+    this.stopGroupManager();
+    this.startGroupManager();
+  }
+
+  public setMaxAppearenceTime(time: number): void {
+    this.maxTimeGroupAppearence = time;
+    this.stopGroupManager();
+    this.startGroupManager();
   }
 
   private createGroup(): void {

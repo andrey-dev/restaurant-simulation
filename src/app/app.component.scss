@@ -1,0 +1,35 @@
+.full {
+  background-color: red;
+  width: 220px;
+}
+
+.free {
+  background-color: green;
+  color: white;
+  width: 220px;
+}
+
+.partially {
+  background-color: purple;
+  color: white;
+  width: 220px;
+}
+
+.main {
+  display: flex;
+}
+
+.tables-panel {
+  width: 60%;
+  height: 700px;
+  // border-width: 1px;
+  // border-color: black;
+  border-right: 2px solid #000;
+  border-bottom: 2px solid #000;
+}
+
+.groups-queue {
+  width: 40%;
+  height: 700px;
+  // border: 2px solid green;
+}

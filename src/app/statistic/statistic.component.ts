@@ -1,4 +1,8 @@
 import { Component, OnInit } from '@angular/core';
+import {
+  Statistic,
+  RestManager
+} from '../shared-services/rest-manager.service';
 
 @Component({
   selector: 'app-statistic',
@@ -6,10 +10,10 @@ import { Component, OnInit } from '@angular/core';
   styleUrls: ['./statistic.component.scss']
 })
 export class StatisticComponent implements OnInit {
-
-  constructor() { }
+  public statistic: Statistic;
+  constructor(private restManager: RestManager) {}
 
   ngOnInit() {
+    this.statistic = this.restManager.getStatistic();
   }
-
 }

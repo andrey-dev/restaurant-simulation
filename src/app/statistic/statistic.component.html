@@ -1,3 +1,18 @@
-<p>
-  statistic works!
-</p>
+<div class="stat-block">
+  <div>
+    <img src="./assets/img/total.png" alt="total" />
+    <p>Total: {{ statistic.total }}</p>
+  </div>
+  <div>
+    <img src="./assets/img/served.png" alt="served" />
+    <p>Served: {{ statistic.served }}</p>
+  </div>
+  <div>
+    <img src="./assets/img/waiting.png" alt="waiting" />
+    <p>Waiting: {{ statistic.waiting }}</p>
+  </div>
+  <div>
+    <img src="./assets/img/abandon.png" alt="abandon" />
+    <p>Abandon: {{ statistic.abandon }}</p>
+  </div>
+</div>

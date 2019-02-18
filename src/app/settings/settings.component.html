@@ -1,0 +1,24 @@
+<section class="settings-section">
+  <mat-form-field class="mat-form-margin">
+    <input
+      matInput
+      type="number"
+      [min]="1"
+      [max]="10"
+      placeholder="Min Appearence time"
+      [(ngModel)]="minAppearenceSelected"
+      (input)="onMinAppearenceChanged()"
+    />
+  </mat-form-field>
+  <mat-form-field class="mat-form-margin">
+    <input
+      matInput
+      type="number"
+      [min]="minAppearenceSelected"
+      [max]="10"
+      placeholder="Max Appearence time"
+      [(ngModel)]="maxAppearenceSelected"
+      (input)="onMaxAppearenceChanged()"
+    />
+  </mat-form-field>
+</section>

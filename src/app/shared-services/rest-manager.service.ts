@@ -1,21 +1,45 @@
-import { Injectable } from '@angular/core';
+import { Injectable, EventEmitter } from '@angular/core';
 import { Table, TableManager } from './table-manager.service';
 import { ClientsGroup, ClientGroupManager } from './client-group.service';
-import TimeManager from './time-manager.service';
+import { TimeManager } from './time-manager.service';
+
+export interface Statistic {
+  total: number;
+  served: number;
+  waiting: number;
+  abandon: number;
+}
+
+export interface TableInfo {
+  size: number;
+  groups: [];
+}
 
 @Injectable()
-export default class RestManager {
+export class RestManager {
+  public groupArrived = new EventEmitter<ClientsGroup>();
+  public groupLeavedQueue = new EventEmitter<ClientsGroup>();
+  public groupGetTable = new EventEmitter<{}>();
+  public groupLeavedTable = new EventEmitter<{}>();
   private tables: Map<string, Table>;
-  private notServedGroups: ClientsGroup[] = [];
-  private servedGroups: ClientsGroup[] = [];
-  // private statistics ?
+  private waitingGroups: Map<string, ClientsGroup> = new Map();
+  private statistics: Statistic = {
+    total: 0,
+    served: 0,
+    waiting: 0,
+    abandon: 0
+  };
 
   constructor(
+    private timeManager: TimeManager,
     private clientGroupManager: ClientGroupManager,
-    private tableManager: TableManager,
-    private timeManager: TimeManager
+    private tableManager: TableManager
   ) {
     this.tables = this.tableManager.initTables();
+  }
+
+  public getStatistic(): Statistic {
+    return this.statistics;
   }
 
   public openRestaurant(): void {
@@ -25,6 +49,15 @@ export default class RestManager {
 
   public closeRestaurant(): void {
     this.clientGroupManager.stopGroupManager();
+    this.timeManager.stopTimeManager();
+  }
+
+  public getTables(): Table[] {
+    return Array.from(this.tables.values());
+  }
+
+  public getWaitingGroups(): ClientsGroup[] {
+    return Array.from(this.waitingGroups.values());
   }
 
   private makeSubscriptions(): void {
@@ -32,84 +65,83 @@ export default class RestManager {
       this.onArrive(group);
     });
     this.timeManager.stayTimeTimer.subscribe((data: any) => {
-      this.onStayTimeIsOver(data.table, data.groupSize);
+      this.onLeaveServed(data.table, data.group);
+    });
+    this.timeManager.waitTimeTimer.subscribe((group: ClientsGroup) => {
+      this.onLeaveNotServed(group);
     });
   }
 
   private onArrive(group: ClientsGroup): void {
-    this.notServedGroups.push(group);
-    const table = this.lookup(/*group*/);
-    if (table) {
-      this.servedGroups.push(this.notServedGroups.pop()); // !!!!
-      this.groupSatAtTheTable(table, group.getGroupSize());
-      this.timeManager.runStayTimeTimer(
-        table,
-        group.getGroupSize(),
-        group.getStayTime()
-      );
-      return;
-    }
-    // runTableWaitTimer()
-    // runLookupByTimer
+    this.groupArrived.emit(group);
+    this.statistics.total++;
+    this.waitingGroups.set(group.getId(), group);
+    this.timeManager.runTableWaitTimer(group);
+    this.statistics.waiting++;
+    this.findTable();
   }
 
-  private onLeave(group: ClientsGroup): void {}
+  private onLeaveNotServed(group: ClientsGroup): void {
+    this.groupLeavedQueue.emit(group);
+    this.waitingGroups.delete(group.getId());
+    this.statistics.abandon++;
+    this.statistics.waiting--;
+  }
 
-  private onStayTimeIsOver(table: Table, groupSize: number): void {
-    const currentFreeChairs = table.getFreeChairs() + groupSize;
+  private onLeaveServed(table: Table, group: ClientsGroup): void {
+    const currentFreeChairs = table.getFreeChairs() + group.getGroupSize();
     this.tables.get(table.getId()).setFreeChairs(currentFreeChairs);
-    console.log(
-      `A group of ${groupSize} people left table ${JSON.stringify(table)}`
-    );
+    this.tables.get(table.getId()).removeFromGroups(group);
+    this.groupLeavedTable.emit({ group, table });
+    if (this.waitingGroups.size) {
+      this.findTable();
+    }
   }
 
-  private onTableWaitTimeIsOver() {}
-
-  private lookup(/*group: ClientsGroup*/): Table {
-    /*for (const value of this.tables.values()) {
-      if (value.getFreeChairs() >= group.getGroupSize()) {
-        return value;
+  private findTable(): void {
+    for (const notServedGroup of this.waitingGroups.values()) {
+      const table = this.lookup(notServedGroup);
+      if (table) {
+        return this.tableWasFound(table, notServedGroup);
       }
     }
-    return undefined;*/
-    let result: Table;
-    console.log('lookup this.notServedGroups', this.notServedGroups);
+  }
 
-    this.notServedGroups.map(group => {
-      console.log('-group ', group);
-
-      result = this.getTableForGroup(group);
-      if (result) {
-        return;
-      }
-    });
-    console.log('end lookup with result = ', result);
-
-    return result;
+  private lookup(group: ClientsGroup): Table {
+    return this.getTableForGroup(group);
   }
 
   private getTableForGroup(group: ClientsGroup): Table {
+    let partiallyFreeTable: Table;
     for (const value of this.tables.values()) {
-      if (value.getFreeChairs() >= group.getGroupSize()) {
+      if (value.getFreeChairs() >= group.getGroupSize() && value.isFree()) {
         return value;
       }
+      if (
+        value.getFreeChairs() >= group.getGroupSize() &&
+        value.isPartiallyFree() &&
+        !partiallyFreeTable
+      ) {
+        partiallyFreeTable = value;
+      }
     }
-    return undefined;
+    return partiallyFreeTable ? partiallyFreeTable : undefined;
   }
 
-  private groupSatAtTheTable(table: Table, groupSize: number): void {
-    const currentFreeChairs = table.getFreeChairs() - groupSize;
-    // this.tables.get(table.getId()).setFreeChairs(currentFreeChairs);
-    table.setFreeChairs(currentFreeChairs);
+  private groupSatAtTheTable(table: Table, group: ClientsGroup): void {
+    const currentFreeChairs = table.getFreeChairs() - group.getGroupSize();
+    this.tables.get(table.getId()).setFreeChairs(currentFreeChairs);
+    this.tables.get(table.getId()).setToGroups(group);
+    this.groupGetTable.emit({ group, table });
+  }
 
-    // console.log(
-    //   'this.tables.get(table.getId())',
-    //   this.tables.get(table.getId())
-    // );
-    console.log(
-      `A Group of ${groupSize} people sat at the table ${JSON.stringify(
-        this.tables.get(table.getId())
-      )}`
-    );
+  private tableWasFound(table: Table, group: ClientsGroup): void {
+    this.timeManager.stopTableWaitTimer(group);
+    this.waitingGroups.delete(group.getId());
+    this.statistics.waiting--;
+    this.statistics.served++;
+    this.groupLeavedQueue.emit(group);
+    this.groupSatAtTheTable(table, group);
+    this.timeManager.runStayTimeTimer(table, group);
   }
 }
